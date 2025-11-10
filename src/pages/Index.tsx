@@ -1,10 +1,24 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Apple, BarChart3, Brain, Target, Utensils, ChefHat } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="container mx-auto px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Apple className="h-8 w-8 text-primary" />
+            <span className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              Eats'Kale
+            </span>
+          </div>
+          <ThemeToggle />
+        </div>
+      </header>
+
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-primary py-20 px-6">
         <div className="container mx-auto max-w-6xl">
@@ -15,13 +29,16 @@ const Index = () => {
             </div>
             
             <h1 className="mb-6 text-5xl font-bold text-white md:text-6xl lg:text-7xl">
-              Track Your Nutrition
-              <br />
-              <span className="text-white/90">Reach Your Goals</span>
+              Eats'Kale
             </h1>
             
+            <p className="mb-4 text-2xl font-semibold text-white tracking-wide">
+              Track • Tweak • Triumph • Hit your nutrition target!
+            </p>
+            
             <p className="mb-8 max-w-2xl text-lg text-white/90 md:text-xl">
-              Smart food tracking powered by AI. Get instant nutritional insights, personalized meal plans, and achieve your health goals with ease.
+              Snap a photo of your meal and let AI instantly analyze its nutritional content. 
+              Achieve your health goals with personalized insights and smart meal planning.
             </p>
             
             <div className="flex flex-col gap-4 sm:flex-row">
@@ -105,7 +122,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="py-8 px-6 border-t border-border">
         <div className="container mx-auto max-w-6xl text-center text-muted-foreground">
-          <p>© 2025 NutriTrack AI. Your health, simplified.</p>
+          <p>© 2025 Eats'Kale. Track • Tweak • Triumph</p>
         </div>
       </footer>
     </div>

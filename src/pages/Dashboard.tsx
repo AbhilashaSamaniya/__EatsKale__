@@ -7,6 +7,8 @@ import { Apple, Camera, Plus, Target, TrendingUp, Utensils } from "lucide-react"
 import { Link } from "react-router-dom";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { MealScanner } from "@/components/MealScanner";
 
 const Dashboard = () => {
   const [foodInput, setFoodInput] = useState("");
@@ -59,9 +61,10 @@ const Dashboard = () => {
               <div className="p-2 rounded-lg bg-gradient-primary">
                 <Apple className="h-6 w-6 text-white" />
               </div>
-              <span className="text-xl font-bold text-foreground">NutriTrack AI</span>
+              <span className="text-xl font-bold text-foreground">Eats'Kale</span>
             </Link>
             <nav className="flex items-center gap-4">
+              <ThemeToggle />
               <Link to="/dashboard">
                 <Button variant="ghost">Dashboard</Button>
               </Link>
@@ -86,14 +89,23 @@ const Dashboard = () => {
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Meal Scanner */}
+            <MealScanner onScanComplete={(data) => {
+              console.log("Scanned meal:", data);
+              toast({
+                title: "Meal logged!",
+                description: `${data.foodName} added to your meals`,
+              });
+            }} />
+            
             {/* Add Meal Card */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Plus className="h-5 w-5 text-primary" />
-                  Log Your Meal
+                  Or Log Manually
                 </CardTitle>
-                <CardDescription>Describe what you ate or upload a photo</CardDescription>
+                <CardDescription>Describe what you ate</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Textarea
@@ -102,14 +114,9 @@ const Dashboard = () => {
                   onChange={(e) => setFoodInput(e.target.value)}
                   rows={3}
                 />
-                <div className="flex gap-2">
-                  <Button onClick={handleAnalyzeFood} disabled={isAnalyzing} className="flex-1">
-                    {isAnalyzing ? "Analyzing..." : "Analyze with AI"}
-                  </Button>
-                  <Button variant="outline" size="icon">
-                    <Camera className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Button onClick={handleAnalyzeFood} disabled={isAnalyzing} className="w-full">
+                  {isAnalyzing ? "Analyzing..." : "Analyze with AI"}
+                </Button>
               </CardContent>
             </Card>
 
