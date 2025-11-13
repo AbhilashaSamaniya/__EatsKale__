@@ -1,10 +1,33 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Apple, ChefHat, Clock, Sparkles } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Apple, ChefHat, Clock, Sparkles, LogOut } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Meals = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to log out. Please try again.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Logged out",
+        description: "You've been logged out successfully.",
+      });
+      navigate("/");
+    }
+  };
+
   const mealSuggestions = [
     {
       id: 1,
@@ -62,9 +85,10 @@ const Meals = () => {
               <div className="p-2 rounded-lg bg-gradient-primary">
                 <Apple className="h-6 w-6 text-white" />
               </div>
-              <span className="text-xl font-bold text-foreground">NutriTrack AI</span>
+              <span className="text-xl font-bold text-foreground">Eats'Kale</span>
             </Link>
             <nav className="flex items-center gap-4">
+              <ThemeToggle />
               <Link to="/dashboard">
                 <Button variant="ghost">Dashboard</Button>
               </Link>
@@ -74,7 +98,10 @@ const Meals = () => {
               <Link to="/meals">
                 <Button variant="ghost">Meal Plans</Button>
               </Link>
-              <Button variant="outline">Sign Out</Button>
+              <Button variant="outline" onClick={handleLogout} className="gap-2">
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
             </nav>
           </div>
         </div>

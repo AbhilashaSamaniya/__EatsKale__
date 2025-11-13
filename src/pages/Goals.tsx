@@ -4,17 +4,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Apple, Target, Save } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Apple, Target, Save, LogOut } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Goals = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [goalType, setGoalType] = useState("maintain");
   const [calories, setCalories] = useState("2000");
   const [protein, setProtein] = useState("150");
   const [carbs, setCarbs] = useState("250");
   const [fats, setFats] = useState("70");
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to log out. Please try again.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Logged out",
+        description: "You've been logged out successfully.",
+      });
+      navigate("/");
+    }
+  };
 
   const handleSave = () => {
     toast({
@@ -33,9 +53,10 @@ const Goals = () => {
               <div className="p-2 rounded-lg bg-gradient-primary">
                 <Apple className="h-6 w-6 text-white" />
               </div>
-              <span className="text-xl font-bold text-foreground">NutriTrack AI</span>
+              <span className="text-xl font-bold text-foreground">Eats'Kale</span>
             </Link>
             <nav className="flex items-center gap-4">
+              <ThemeToggle />
               <Link to="/dashboard">
                 <Button variant="ghost">Dashboard</Button>
               </Link>
@@ -45,7 +66,10 @@ const Goals = () => {
               <Link to="/meals">
                 <Button variant="ghost">Meal Plans</Button>
               </Link>
-              <Button variant="outline">Sign Out</Button>
+              <Button variant="outline" onClick={handleLogout} className="gap-2">
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
             </nav>
           </div>
         </div>

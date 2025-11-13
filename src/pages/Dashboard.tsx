@@ -1,19 +1,40 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Apple, Camera, Plus, Target, TrendingUp, Utensils } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Apple, Camera, Plus, Target, TrendingUp, Utensils, LogOut } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { MealScanner } from "@/components/MealScanner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
   const [foodInput, setFoodInput] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [userName, setUserName] = useState("");
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .maybeSingle();
+        
+        if (profile?.full_name) {
+          setUserName(profile.full_name);
+        }
+      }
+    };
+    fetchUserProfile();
+  }, []);
 
   // Mock data - will be replaced with real data from database
   const dailyGoals = {
@@ -28,6 +49,23 @@ const Dashboard = () => {
     { id: 2, name: "Grilled Chicken Salad", time: "1:00 PM", calories: 450, protein: 35, carbs: 30, fats: 18 },
     { id: 3, name: "Greek Yogurt & Almonds", time: "4:00 PM", calories: 250, protein: 18, carbs: 20, fats: 12 },
   ];
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to log out. Please try again.",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Logged out",
+        description: "You've been logged out successfully.",
+      });
+      navigate("/");
+    }
+  };
 
   const handleAnalyzeFood = async () => {
     if (!foodInput.trim()) {
@@ -74,7 +112,10 @@ const Dashboard = () => {
               <Link to="/meals">
                 <Button variant="ghost">Meal Plans</Button>
               </Link>
-              <Button variant="outline">Sign Out</Button>
+              <Button variant="outline" onClick={handleLogout} className="gap-2">
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
             </nav>
           </div>
         </div>
@@ -82,7 +123,9 @@ const Dashboard = () => {
 
       <div className="container mx-auto px-6 py-8 max-w-7xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Welcome back!</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Welcome back{userName ? `, ${userName}` : ""}!
+          </h1>
           <p className="text-muted-foreground">Track your meals and reach your nutrition goals</p>
         </div>
 
