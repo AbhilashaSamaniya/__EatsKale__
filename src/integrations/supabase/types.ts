@@ -58,6 +58,33 @@ export type Database = {
           },
         ]
       }
+      meal_plans: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       meals: {
         Row: {
           calories: number
@@ -131,6 +158,59 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      recipes: {
+        Row: {
+          calories: number
+          carbs: number
+          created_at: string
+          description: string | null
+          difficulty: string
+          fats: number
+          id: string
+          meal_plan_id: string | null
+          name: string
+          protein: number
+          time: string
+          user_id: string
+        }
+        Insert: {
+          calories: number
+          carbs: number
+          created_at?: string
+          description?: string | null
+          difficulty: string
+          fats: number
+          id?: string
+          meal_plan_id?: string | null
+          name: string
+          protein: number
+          time: string
+          user_id: string
+        }
+        Update: {
+          calories?: number
+          carbs?: number
+          created_at?: string
+          description?: string | null
+          difficulty?: string
+          fats?: number
+          id?: string
+          meal_plan_id?: string | null
+          name?: string
+          protein?: number
+          time?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipes_meal_plan_id_fkey"
+            columns: ["meal_plan_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
