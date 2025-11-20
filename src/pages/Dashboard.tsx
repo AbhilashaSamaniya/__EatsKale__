@@ -15,40 +15,98 @@ const Dashboard = () => {
   const [foodInput, setFoodInput] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [userName, setUserName] = useState("");
+  const [meals, setMeals] = useState<any[]>([]);
+  const [dailyGoals, setDailyGoals] = useState({
+    calories: { current: 0, target: 2000 },
+    protein: { current: 0, target: 150 },
+    carbs: { current: 0, target: 250 },
+    fats: { current: 0, target: 70 },
+  });
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", user.id)
-          .maybeSingle();
-        
-        if (profile?.full_name) {
-          setUserName(profile.full_name);
-        }
-      }
-    };
     fetchUserProfile();
+    fetchGoals();
+    fetchTodaysMeals();
   }, []);
 
-  // Mock data - will be replaced with real data from database
-  const dailyGoals = {
-    calories: { current: 1450, target: 2000 },
-    protein: { current: 65, target: 150 },
-    carbs: { current: 180, target: 250 },
-    fats: { current: 45, target: 70 },
+  const fetchUserProfile = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      
+      if (profile?.full_name) {
+        setUserName(profile.full_name);
+      }
+    }
   };
 
-  const todaysMeals = [
-    { id: 1, name: "Oatmeal with Berries", time: "8:30 AM", calories: 350, protein: 12, carbs: 65, fats: 8 },
-    { id: 2, name: "Grilled Chicken Salad", time: "1:00 PM", calories: 450, protein: 35, carbs: 30, fats: 18 },
-    { id: 3, name: "Greek Yogurt & Almonds", time: "4:00 PM", calories: 250, protein: 18, carbs: 20, fats: 12 },
-  ];
+  const fetchGoals = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("goals")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (data) {
+      setDailyGoals({
+        calories: { current: dailyGoals.calories.current, target: data.calories },
+        protein: { current: dailyGoals.protein.current, target: data.protein },
+        carbs: { current: dailyGoals.carbs.current, target: data.carbs },
+        fats: { current: dailyGoals.fats.current, target: data.fats },
+      });
+    }
+  };
+
+  const fetchTodaysMeals = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const { data, error } = await supabase
+      .from("meals")
+      .select("*")
+      .eq("user_id", user.id)
+      .gte("meal_date", today.toISOString())
+      .order("meal_date", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching meals:", error);
+      return;
+    }
+
+    if (data) {
+      setMeals(data);
+      
+      // Calculate totals
+      const totals = data.reduce(
+        (acc, meal) => ({
+          calories: acc.calories + Number(meal.calories),
+          protein: acc.protein + Number(meal.protein),
+          carbs: acc.carbs + Number(meal.carbs),
+          fats: acc.fats + Number(meal.fats),
+        }),
+        { calories: 0, protein: 0, carbs: 0, fats: 0 }
+      );
+
+      setDailyGoals(prev => ({
+        calories: { current: totals.calories, target: prev.calories.target },
+        protein: { current: totals.protein, target: prev.protein.target },
+        carbs: { current: totals.carbs, target: prev.carbs.target },
+        fats: { current: totals.fats, target: prev.fats.target },
+      }));
+    }
+  };
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -78,7 +136,7 @@ const Dashboard = () => {
     }
 
     setIsAnalyzing(true);
-    // TODO: Call AI API to analyze food
+    // TODO: Call AI API to analyze food text
     setTimeout(() => {
       toast({
         title: "Meal analyzed!",
@@ -87,6 +145,41 @@ const Dashboard = () => {
       setFoodInput("");
       setIsAnalyzing(false);
     }, 2000);
+  };
+
+  const handleMealScanned = async (nutritionData: any) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("meals")
+        .insert([{
+          user_id: user.id,
+          meal_name: nutritionData.foodName,
+          calories: nutritionData.calories,
+          protein: nutritionData.protein,
+          carbs: nutritionData.carbs,
+          fats: nutritionData.fats,
+          image_url: nutritionData.image || null,
+          meal_date: new Date().toISOString(),
+        }]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Meal logged!",
+        description: `${nutritionData.foodName} added to your meals`,
+      });
+
+      fetchTodaysMeals();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to log meal",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -133,13 +226,7 @@ const Dashboard = () => {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Meal Scanner */}
-            <MealScanner onScanComplete={(data) => {
-              console.log("Scanned meal:", data);
-              toast({
-                title: "Meal logged!",
-                description: `${data.foodName} added to your meals`,
-              });
-            }} />
+            <MealScanner onScanComplete={handleMealScanned} />
             
             {/* Add Meal Card */}
             <Card>
@@ -173,20 +260,28 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {todaysMeals.map((meal) => (
-                    <div key={meal.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors">
-                      <div>
-                        <h4 className="font-semibold text-foreground">{meal.name}</h4>
-                        <p className="text-sm text-muted-foreground">{meal.time}</p>
+                  {meals.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      No meals logged today. Start by scanning or logging a meal!
+                    </p>
+                  ) : (
+                    meals.map((meal) => (
+                      <div key={meal.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                        <div>
+                          <h4 className="font-semibold text-foreground">{meal.meal_name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(meal.meal_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-foreground">{meal.calories} cal</p>
+                          <p className="text-xs text-muted-foreground">
+                            P: {meal.protein}g • C: {meal.carbs}g • F: {meal.fats}g
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-foreground">{meal.calories} cal</p>
-                        <p className="text-xs text-muted-foreground">
-                          P: {meal.protein}g • C: {meal.carbs}g • F: {meal.fats}g
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>

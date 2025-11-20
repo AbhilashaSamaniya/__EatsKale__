@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,38 @@ const Goals = () => {
   const [protein, setProtein] = useState("150");
   const [carbs, setCarbs] = useState("250");
   const [fats, setFats] = useState("70");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadGoals();
+  }, []);
+
+  const loadGoals = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("goals")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setGoalType(data.goal_type);
+        setCalories(data.calories.toString());
+        setProtein(data.protein.toString());
+        setCarbs(data.carbs.toString());
+        setFats(data.fats.toString());
+      }
+    } catch (error: any) {
+      console.error("Error loading goals:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -36,12 +68,44 @@ const Goals = () => {
     }
   };
 
-  const handleSave = () => {
-    toast({
-      title: "Goals updated!",
-      description: "Your nutrition goals have been saved successfully.",
-    });
+  const handleSave = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("goals")
+        .upsert({
+          user_id: user.id,
+          goal_type: goalType,
+          calories: parseInt(calories),
+          protein: parseInt(protein),
+          carbs: parseInt(carbs),
+          fats: parseInt(fats),
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Goals updated!",
+        description: "Your nutrition goals have been saved successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save goals",
+        variant: "destructive",
+      });
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

@@ -1,15 +1,135 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Apple, ChefHat, Clock, Sparkles, LogOut } from "lucide-react";
+import { Apple, ChefHat, Clock, Sparkles, LogOut, Plus, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 const Meals = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [mealPlans, setMealPlans] = useState<any[]>([]);
+  const [recipes, setRecipes] = useState<any[]>([]);
+  const [newPlanName, setNewPlanName] = useState("");
+  const [newPlanDescription, setNewPlanDescription] = useState("");
+  const [isCreatingPlan, setIsCreatingPlan] = useState(false);
+
+  useEffect(() => {
+    fetchMealPlans();
+    fetchRecipes();
+  }, []);
+
+  const fetchMealPlans = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("meal_plans")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching meal plans:", error);
+      return;
+    }
+
+    setMealPlans(data || []);
+  };
+
+  const fetchRecipes = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("recipes")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching recipes:", error);
+      return;
+    }
+
+    setRecipes(data || []);
+  };
+
+  const handleCreatePlan = async () => {
+    if (!newPlanName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a plan name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingPlan(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("meal_plans")
+        .insert({
+          user_id: user.id,
+          name: newPlanName,
+          description: newPlanDescription,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success!",
+        description: "Meal plan created successfully",
+      });
+
+      setNewPlanName("");
+      setNewPlanDescription("");
+      fetchMealPlans();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create meal plan",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingPlan(false);
+    }
+  };
+
+  const handleDeletePlan = async (planId: string) => {
+    try {
+      const { error } = await supabase
+        .from("meal_plans")
+        .delete()
+        .eq("id", planId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Deleted",
+        description: "Meal plan deleted successfully",
+      });
+
+      fetchMealPlans();
+      fetchRecipes(); // Recipes will be deleted automatically via CASCADE
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete meal plan",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -28,9 +148,10 @@ const Meals = () => {
     }
   };
 
-  const mealSuggestions = [
+  // Default recipe suggestions
+  const defaultRecipes = [
     {
-      id: 1,
+      id: "default-1",
       name: "High-Protein Breakfast Bowl",
       description: "Greek yogurt, granola, berries, and honey",
       calories: 420,
@@ -41,7 +162,7 @@ const Meals = () => {
       difficulty: "Easy",
     },
     {
-      id: 2,
+      id: "default-2",
       name: "Mediterranean Grilled Chicken",
       description: "Chicken breast with quinoa and roasted vegetables",
       calories: 520,
@@ -52,7 +173,7 @@ const Meals = () => {
       difficulty: "Medium",
     },
     {
-      id: 3,
+      id: "default-3",
       name: "Salmon & Sweet Potato",
       description: "Pan-seared salmon with baked sweet potato and asparagus",
       calories: 480,
@@ -61,138 +182,6 @@ const Meals = () => {
       fats: 18,
       time: "30 min",
       difficulty: "Medium",
-    },
-    {
-      id: 4,
-      name: "Veggie Stir-Fry Bowl",
-      description: "Tofu, mixed vegetables, and brown rice with teriyaki sauce",
-      calories: 380,
-      protein: 22,
-      carbs: 58,
-      fats: 10,
-      time: "20 min",
-      difficulty: "Easy",
-    },
-    {
-      id: 5,
-      name: "Protein Power Smoothie Bowl",
-      description: "Banana, protein powder, almond butter, topped with granola and chia seeds",
-      calories: 385,
-      protein: 32,
-      carbs: 48,
-      fats: 11,
-      time: "5 min",
-      difficulty: "Easy",
-    },
-    {
-      id: 6,
-      name: "Lean Turkey Burger",
-      description: "Grilled turkey patty with avocado, lettuce, tomato on whole grain bun",
-      calories: 445,
-      protein: 38,
-      carbs: 42,
-      fats: 15,
-      time: "20 min",
-      difficulty: "Easy",
-    },
-    {
-      id: 7,
-      name: "Shrimp Avocado Salad",
-      description: "Grilled shrimp, mixed greens, avocado, cherry tomatoes, olive oil dressing",
-      calories: 365,
-      protein: 34,
-      carbs: 18,
-      fats: 20,
-      time: "15 min",
-      difficulty: "Easy",
-    },
-    {
-      id: 8,
-      name: "Chicken Burrito Bowl",
-      description: "Grilled chicken, brown rice, black beans, salsa, and guacamole",
-      calories: 540,
-      protein: 42,
-      carbs: 58,
-      fats: 16,
-      time: "25 min",
-      difficulty: "Medium",
-    },
-    {
-      id: 9,
-      name: "Egg White Veggie Scramble",
-      description: "Egg whites with spinach, mushrooms, peppers, and whole wheat toast",
-      calories: 285,
-      protein: 24,
-      carbs: 32,
-      fats: 6,
-      time: "10 min",
-      difficulty: "Easy",
-    },
-    {
-      id: 10,
-      name: "Tuna Poke Bowl",
-      description: "Fresh tuna, sushi rice, edamame, cucumber, seaweed salad",
-      calories: 465,
-      protein: 36,
-      carbs: 52,
-      fats: 12,
-      time: "15 min",
-      difficulty: "Easy",
-    },
-    {
-      id: 11,
-      name: "Baked Cod with Vegetables",
-      description: "Lemon herb cod with roasted broccoli and cauliflower",
-      calories: 320,
-      protein: 35,
-      carbs: 22,
-      fats: 9,
-      time: "30 min",
-      difficulty: "Medium",
-    },
-    {
-      id: 12,
-      name: "Chickpea Curry",
-      description: "Coconut curry chickpeas with spinach served over basmati rice",
-      calories: 425,
-      protein: 16,
-      carbs: 68,
-      fats: 12,
-      time: "35 min",
-      difficulty: "Medium",
-    },
-    {
-      id: 13,
-      name: "Grilled Steak & Veggies",
-      description: "Lean sirloin steak with grilled zucchini, peppers, and sweet potato",
-      calories: 495,
-      protein: 40,
-      carbs: 38,
-      fats: 20,
-      time: "25 min",
-      difficulty: "Medium",
-    },
-    {
-      id: 14,
-      name: "Quinoa Buddha Bowl",
-      description: "Quinoa, roasted chickpeas, kale, tahini dressing, and roasted vegetables",
-      calories: 410,
-      protein: 18,
-      carbs: 62,
-      fats: 14,
-      time: "30 min",
-      difficulty: "Medium",
-    },
-    {
-      id: 15,
-      name: "Overnight Protein Oats",
-      description: "Oats, protein powder, almond milk, banana, and peanut butter",
-      calories: 395,
-      protein: 28,
-      carbs: 54,
-      fats: 10,
-      time: "5 min (+ overnight)",
-      difficulty: "Easy",
     },
   ];
 
@@ -229,13 +218,89 @@ const Meals = () => {
       </header>
 
       <div className="container mx-auto px-6 py-8 max-w-6xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-2">
-            <ChefHat className="h-8 w-8 text-primary" />
-            Meal Plans & Recipes
-          </h1>
-          <p className="text-muted-foreground">AI-powered meal suggestions tailored to your goals</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-2">
+              <ChefHat className="h-8 w-8 text-primary" />
+              Meal Plans & Recipes
+            </h1>
+            <p className="text-muted-foreground">Organize your meals with custom plans</p>
+          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Create Meal Plan
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Meal Plan</DialogTitle>
+                <DialogDescription>
+                  Create a custom meal plan to organize your recipes
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="plan-name">Plan Name</Label>
+                  <Input
+                    id="plan-name"
+                    placeholder="E.g., Weekly Meal Prep"
+                    value={newPlanName}
+                    onChange={(e) => setNewPlanName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="plan-description">Description (Optional)</Label>
+                  <Textarea
+                    id="plan-description"
+                    placeholder="Describe your meal plan..."
+                    value={newPlanDescription}
+                    onChange={(e) => setNewPlanDescription(e.target.value)}
+                  />
+                </div>
+                <Button onClick={handleCreatePlan} disabled={isCreatingPlan} className="w-full">
+                  {isCreatingPlan ? "Creating..." : "Create Plan"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
+
+        {/* Meal Plans Section */}
+        {mealPlans.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Your Meal Plans</h2>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {mealPlans.map((plan) => (
+                <Card key={plan.id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle>{plan.name}</CardTitle>
+                        {plan.description && (
+                          <CardDescription className="mt-2">{plan.description}</CardDescription>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeletePlan(plan.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      {recipes.filter(r => r.meal_plan_id === plan.id).length} recipes
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* AI Banner */}
         <Card className="mb-8 border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
@@ -246,20 +311,20 @@ const Meals = () => {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-foreground mb-2">
-                  Personalized Meal Suggestions
+                  Recipe Suggestions
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  These meals are recommended based on your goals and preferences. Click any recipe to view full details, ingredients, and step-by-step instructions.
+                  Browse our recommended recipes below. Create meal plans to organize your favorite recipes!
                 </p>
-                <Button>Generate New Suggestions</Button>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Meal Grid */}
+        {/* Recipe Grid */}
+        <h2 className="text-2xl font-bold text-foreground mb-4">Suggested Recipes</h2>
         <div className="grid gap-6 md:grid-cols-2">
-          {mealSuggestions.map((meal) => (
+          {defaultRecipes.map((meal) => (
             <Card key={meal.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -302,14 +367,16 @@ const Meals = () => {
                 {/* Actions */}
                 <div className="flex gap-2">
                   <Button className="flex-1">View Recipe</Button>
-                  <Button variant="outline">Add to Plan</Button>
+                  <Button variant="outline" disabled={mealPlans.length === 0}>
+                    Add to Plan
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        {/* Utensil Measurements Reference */}
+        {/* Measurement Guide */}
         <Card className="mt-8">
           <CardHeader>
             <CardTitle>Quick Measurement Guide</CardTitle>
