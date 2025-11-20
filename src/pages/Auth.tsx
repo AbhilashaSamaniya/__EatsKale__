@@ -7,6 +7,13 @@ import { Apple, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
+
+const authSchema = z.object({
+  email: z.string().trim().email({ message: "Invalid email address" }).max(255, "Email must be less than 255 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(100, "Password must be less than 100 characters"),
+  fullName: z.string().trim().min(1, "Name is required").max(100, "Name must be less than 100 characters").optional(),
+});
 
 const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -34,8 +41,28 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      // Validate inputs using zod schema
+      const validationData = {
+        email,
+        password,
+        ...(isSignUp && { fullName }),
+      };
+
+      const result = authSchema.safeParse(validationData);
+      
+      if (!result.success) {
+        const firstError = result.error.errors[0];
+        toast({
+          title: "Validation Error",
+          description: firstError.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       if (isSignUp) {
-        // Validation
+        // Sign up validation
         if (password !== confirmPassword) {
           toast({
             title: "Error",
@@ -46,24 +73,14 @@ const Auth = () => {
           return;
         }
 
-        if (password.length < 6) {
-          toast({
-            title: "Error",
-            description: "Password must be at least 6 characters",
-            variant: "destructive",
-          });
-          setIsLoading(false);
-          return;
-        }
-
         // Sign up
         const { error } = await supabase.auth.signUp({
-          email,
-          password,
+          email: result.data.email,
+          password: result.data.password,
           options: {
             emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
-              full_name: fullName,
+              full_name: result.data.fullName,
             },
           },
         });
@@ -79,8 +96,8 @@ const Auth = () => {
       } else {
         // Sign in
         const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+          email: result.data.email,
+          password: result.data.password,
         });
 
         if (error) throw error;
