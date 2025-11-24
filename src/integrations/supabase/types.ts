@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_quotes: {
+        Row: {
+          author: string | null
+          created_at: string
+          date: string
+          id: string
+          quote: string
+        }
+        Insert: {
+          author?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          quote: string
+        }
+        Update: {
+          author?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          quote?: string
+        }
+        Relationships: []
+      }
       goals: {
         Row: {
           calories: number
@@ -208,6 +232,41 @@ export type Database = {
             columns: ["meal_plan_id"]
             isOneToOne: false
             referencedRelation: "meal_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_activity: {
+        Row: {
+          activity_date: string
+          created_at: string
+          id: string
+          login_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activity_date?: string
+          created_at?: string
+          id?: string
+          login_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activity_date?: string
+          created_at?: string
+          id?: string
+          login_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

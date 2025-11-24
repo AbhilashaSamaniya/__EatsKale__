@@ -10,6 +10,10 @@ import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { MealScanner } from "@/components/MealScanner";
 import { supabase } from "@/integrations/supabase/client";
+import { DailyQuote } from "@/components/DailyQuote";
+import { ProgressAnalytics } from "@/components/ProgressAnalytics";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useActivityTracking } from "@/hooks/useActivityTracking";
 
 const Dashboard = () => {
   const [foodInput, setFoodInput] = useState("");
@@ -24,6 +28,8 @@ const Dashboard = () => {
   });
   const { toast } = useToast();
   const navigate = useNavigate();
+  usePushNotifications();
+  useActivityTracking();
 
   useEffect(() => {
     fetchUserProfile();
@@ -136,21 +142,76 @@ const Dashboard = () => {
     }
 
     setIsAnalyzing(true);
-    // TODO: Call AI API to analyze food text
-    setTimeout(() => {
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-meal', {
+        body: { description: foodInput }
+      });
+
+      if (error) throw error;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const { error: insertError } = await supabase
+        .from("meals")
+        .insert([{
+          user_id: user.id,
+          meal_name: data.foodName,
+          calories: data.calories,
+          protein: data.protein,
+          carbs: data.carbs,
+          fats: data.fats,
+          meal_date: new Date().toISOString(),
+        }]);
+
+      if (insertError) throw insertError;
+
       toast({
         title: "Meal analyzed!",
-        description: "Nutritional information has been added to your log",
+        description: `${data.foodName} added to your meals`,
       });
+      
       setFoodInput("");
+      fetchTodaysMeals();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to analyze meal",
+        variant: "destructive",
+      });
+    } finally {
       setIsAnalyzing(false);
-    }, 2000);
+    }
   };
 
   const handleMealScanned = async (nutritionData: any) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      let imageUrl = null;
+
+      // Upload image to storage if provided
+      if (nutritionData.image) {
+        const fileName = `${user.id}/${Date.now()}.jpg`;
+        const imageBlob = await fetch(nutritionData.image).then(r => r.blob());
+        
+        const { error: uploadError } = await supabase.storage
+          .from('meal-images')
+          .upload(fileName, imageBlob, {
+            contentType: 'image/jpeg',
+          });
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from('meal-images')
+            .getPublicUrl(fileName);
+          imageUrl = publicUrl;
+        }
+      }
 
       const { error } = await supabase
         .from("meals")
@@ -161,7 +222,7 @@ const Dashboard = () => {
           protein: nutritionData.protein,
           carbs: nutritionData.carbs,
           fats: nutritionData.fats,
-          image_url: nutritionData.image || null,
+          image_url: imageUrl,
           meal_date: new Date().toISOString(),
         }]);
 
@@ -215,11 +276,14 @@ const Dashboard = () => {
       </header>
 
       <div className="container mx-auto px-6 py-8 max-w-7xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Welcome back{userName ? `, ${userName}` : ""}!
-          </h1>
-          <p className="text-muted-foreground">Track your meals and reach your nutrition goals</p>
+        <div className="mb-8 space-y-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              Welcome back{userName ? `, ${userName}` : ""}!
+            </h1>
+            <p className="text-muted-foreground">Track your meals and reach your nutrition goals</p>
+          </div>
+          <DailyQuote />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -266,8 +330,15 @@ const Dashboard = () => {
                     </p>
                   ) : (
                     meals.map((meal) => (
-                      <div key={meal.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors">
-                        <div>
+                      <div key={meal.id} className="flex items-start gap-4 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                        {meal.image_url && (
+                          <img 
+                            src={meal.image_url} 
+                            alt={meal.meal_name}
+                            className="w-20 h-20 object-cover rounded-lg"
+                          />
+                        )}
+                        <div className="flex-1">
                           <h4 className="font-semibold text-foreground">{meal.meal_name}</h4>
                           <p className="text-sm text-muted-foreground">
                             {new Date(meal.meal_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
@@ -285,6 +356,9 @@ const Dashboard = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Analytics */}
+            <ProgressAnalytics />
           </div>
 
           {/* Sidebar */}
