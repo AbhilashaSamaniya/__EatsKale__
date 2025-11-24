@@ -3,6 +3,7 @@ import { Camera, Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NutritionData {
   calories: number;
@@ -44,21 +45,13 @@ export const MealScanner = ({ onScanComplete }: MealScannerProps) => {
         reader.readAsDataURL(file);
       });
 
-      // Call AI to analyze the meal
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-meal`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ image: base64 }),
+      // Call AI to analyze the meal using supabase client
+      const { data, error } = await supabase.functions.invoke('analyze-meal', {
+        body: { image: base64 }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to analyze meal');
-      }
+      if (error) throw error;
 
-      const data = await response.json();
       setNutritionData(data);
 
       toast({
