@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RecipeDialog } from "@/components/RecipeDialog";
 
 const Meals = () => {
   const navigate = useNavigate();
@@ -20,6 +21,8 @@ const Meals = () => {
   const [newPlanName, setNewPlanName] = useState("");
   const [newPlanDescription, setNewPlanDescription] = useState("");
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
+  const [isRecipeDialogOpen, setIsRecipeDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchMealPlans();
@@ -126,6 +129,52 @@ const Meals = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to delete meal plan",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleViewRecipe = (recipe: any) => {
+    setSelectedRecipe(recipe);
+    setIsRecipeDialogOpen(true);
+  };
+
+  const handleAddToPlan = async (recipeId: string, planId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Find the default recipe data
+      const defaultRecipe = defaultRecipes.find(r => r.id === recipeId);
+      if (!defaultRecipe) return;
+
+      const { error } = await supabase
+        .from("recipes")
+        .insert({
+          user_id: user.id,
+          meal_plan_id: planId,
+          name: defaultRecipe.name,
+          description: defaultRecipe.description,
+          calories: defaultRecipe.calories,
+          protein: defaultRecipe.protein,
+          carbs: defaultRecipe.carbs,
+          fats: defaultRecipe.fats,
+          time: defaultRecipe.time,
+          difficulty: defaultRecipe.difficulty,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Added to plan!",
+        description: `${defaultRecipe.name} added to your meal plan`,
+      });
+
+      fetchRecipes();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add recipe to plan",
         variant: "destructive",
       });
     }
@@ -366,8 +415,17 @@ const Meals = () => {
 
                 {/* Actions */}
                 <div className="flex gap-2">
-                  <Button className="flex-1">View Recipe</Button>
-                  <Button variant="outline" disabled={mealPlans.length === 0}>
+                  <Button className="flex-1" onClick={() => handleViewRecipe(meal)}>
+                    View Recipe
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    disabled={mealPlans.length === 0}
+                    onClick={() => {
+                      setSelectedRecipe(meal);
+                      setIsRecipeDialogOpen(true);
+                    }}
+                  >
                     Add to Plan
                   </Button>
                 </div>
@@ -418,6 +476,15 @@ const Meals = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Recipe Dialog */}
+      <RecipeDialog
+        recipe={selectedRecipe}
+        open={isRecipeDialogOpen}
+        onOpenChange={setIsRecipeDialogOpen}
+        mealPlans={mealPlans}
+        onAddToPlan={handleAddToPlan}
+      />
     </div>
   );
 };
