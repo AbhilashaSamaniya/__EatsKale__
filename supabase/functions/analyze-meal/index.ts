@@ -40,11 +40,43 @@ serve(async (req) => {
 
     console.log('Authenticated user:', user.id);
 
-    const { image } = await req.json();
+    const { image, description } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    const messages: any[] = [
+      {
+        role: "system",
+        content: "You are a nutrition expert. Analyze food images or descriptions and provide accurate nutritional information. Return ONLY valid JSON with this exact structure: {\"foodName\": \"name\", \"calories\": number, \"protein\": number, \"carbs\": number, \"fats\": number}. All nutrient values should be in grams except calories in kcal."
+      }
+    ];
+
+    if (image) {
+      messages.push({
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Analyze this meal image and provide the nutritional information including food name, calories (kcal), protein (g), carbs (g), and fats (g). Return only JSON."
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: image
+            }
+          }
+        ]
+      });
+    } else if (description) {
+      messages.push({
+        role: "user",
+        content: `Analyze this food description and provide nutritional information: ${description}. Return only JSON with foodName, calories, protein, carbs, and fats.`
+      });
+    } else {
+      throw new Error("Either image or description must be provided");
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -55,27 +87,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: "You are a nutrition expert. Analyze food images and provide accurate nutritional information. Return ONLY valid JSON with this exact structure: {\"foodName\": \"name\", \"calories\": number, \"protein\": number, \"carbs\": number, \"fats\": number}. All nutrient values should be in grams except calories in kcal."
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Analyze this meal image and provide the nutritional information including food name, calories (kcal), protein (g), carbs (g), and fats (g). Return only JSON."
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: image
-                }
-              }
-            ]
-          }
-        ],
+        messages,
       }),
     });
 

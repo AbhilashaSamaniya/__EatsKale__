@@ -37,9 +37,6 @@ export const MealScanner = ({ onScanComplete }: MealScannerProps) => {
     // Analyze image
     setIsAnalyzing(true);
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-
       // Convert image to base64 for AI analysis
       const base64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
@@ -63,15 +60,19 @@ export const MealScanner = ({ onScanComplete }: MealScannerProps) => {
 
       const data = await response.json();
       setNutritionData(data);
-      
-      if (onScanComplete) {
-        onScanComplete(data);
-      }
 
       toast({
         title: "Meal analyzed!",
         description: `${data.foodName} detected with nutritional information.`,
       });
+      
+      // Pass data with image to parent for saving
+      if (onScanComplete) {
+        onScanComplete({
+          ...data,
+          image: base64,
+        });
+      }
     } catch (error) {
       console.error('Error analyzing meal:', error);
       toast({
