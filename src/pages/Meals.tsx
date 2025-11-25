@@ -180,6 +180,30 @@ const Meals = () => {
     }
   };
 
+  const handleRemoveFromPlan = async (recipeId: string) => {
+    try {
+      const { error } = await supabase
+        .from("recipes")
+        .delete()
+        .eq("id", recipeId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Removed",
+        description: "Recipe removed from meal plan",
+      });
+
+      fetchRecipes();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to remove recipe",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -320,33 +344,59 @@ const Meals = () => {
         {mealPlans.length > 0 && (
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-foreground mb-4">Your Meal Plans</h2>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {mealPlans.map((plan) => (
-                <Card key={plan.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle>{plan.name}</CardTitle>
-                        {plan.description && (
-                          <CardDescription className="mt-2">{plan.description}</CardDescription>
-                        )}
+            <div className="grid gap-6">
+              {mealPlans.map((plan) => {
+                const planRecipes = recipes.filter(r => r.meal_plan_id === plan.id);
+                return (
+                  <Card key={plan.id}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle>{plan.name}</CardTitle>
+                          {plan.description && (
+                            <CardDescription className="mt-2">{plan.description}</CardDescription>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeletePlan(plan.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeletePlan(plan.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      {recipes.filter(r => r.meal_plan_id === plan.id).length} recipes
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardHeader>
+                    <CardContent>
+                      {planRecipes.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No recipes added yet</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {planRecipes.map((recipe) => (
+                            <div key={recipe.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+                              <div className="flex-1">
+                                <h4 className="font-medium text-foreground">{recipe.name}</h4>
+                                <div className="flex gap-4 mt-1 text-xs text-muted-foreground">
+                                  <span>{recipe.calories} cal</span>
+                                  <span>P: {recipe.protein}g</span>
+                                  <span>C: {recipe.carbs}g</span>
+                                  <span>F: {recipe.fats}g</span>
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRemoveFromPlan(recipe.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </div>
         )}

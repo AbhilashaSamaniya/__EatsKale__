@@ -4,11 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Apple, Target, Save, LogOut } from "lucide-react";
+import { Apple, Target, Save, LogOut, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const Goals = () => {
   const { toast } = useToast();
@@ -19,6 +20,9 @@ const Goals = () => {
   const [carbs, setCarbs] = useState("250");
   const [fats, setFats] = useState("70");
   const [loading, setLoading] = useState(true);
+  const [aiRecommendation, setAiRecommendation] = useState("");
+  const [isRecommendationOpen, setIsRecommendationOpen] = useState(false);
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
 
   useEffect(() => {
     loadGoals();
@@ -97,6 +101,59 @@ const Goals = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const getAIRecommendation = async (detailed: boolean = false) => {
+    setIsLoadingAI(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('goal-recommendations', {
+        body: {
+          goalType,
+          currentCalories: parseInt(calories),
+          currentProtein: parseInt(protein),
+          currentCarbs: parseInt(carbs),
+          currentFats: parseInt(fats),
+          detailed
+        }
+      });
+
+      if (error) throw error;
+
+      setAiRecommendation(data.recommendation);
+      if (detailed) {
+        setIsRecommendationOpen(true);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to get AI recommendations",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingAI(false);
+    }
+  };
+
+  const applyRecommendation = async () => {
+    await getAIRecommendation(false);
+    // The brief recommendation would suggest specific values
+    // For now, we'll use preset recommendations
+    const recommendations = {
+      lose: { calories: "1800", protein: "150", carbs: "180", fats: "60" },
+      maintain: { calories: "2200", protein: "140", carbs: "250", fats: "73" },
+      gain: { calories: "2600", protein: "180", carbs: "300", fats: "72" }
+    };
+    
+    const rec = recommendations[goalType as keyof typeof recommendations];
+    setCalories(rec.calories);
+    setProtein(rec.protein);
+    setCarbs(rec.carbs);
+    setFats(rec.fats);
+    
+    toast({
+      title: "Applied!",
+      description: "Recommended values have been applied to your goals.",
+    });
   };
 
   if (loading) {
@@ -226,14 +283,17 @@ const Goals = () => {
           </Card>
 
           {/* AI Recommendations */}
-          <Card className="border-2 border-primary/20">
+          <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
             <CardHeader>
-              <CardTitle>AI Recommendations</CardTitle>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <CardTitle>AI Recommendations</CardTitle>
+              </div>
               <CardDescription>Based on your goal: {goalType === "lose" ? "Lose Weight" : goalType === "maintain" ? "Maintain Weight" : "Gain Muscle"}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-muted">
+                <div className="p-4 rounded-lg bg-card border border-border">
                   <h4 className="font-semibold mb-2 text-foreground">Recommended Calorie Intake</h4>
                   <p className="text-sm text-muted-foreground mb-3">
                     {goalType === "lose" 
@@ -244,12 +304,16 @@ const Goals = () => {
                     }
                   </p>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline">Use Recommended</Button>
-                    <Button size="sm" variant="ghost">Tell me more</Button>
+                    <Button size="sm" variant="outline" onClick={applyRecommendation} disabled={isLoadingAI}>
+                      Use Recommended
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => getAIRecommendation(true)} disabled={isLoadingAI}>
+                      {isLoadingAI ? "Loading..." : "Tell me more"}
+                    </Button>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-lg bg-muted">
+                <div className="p-4 rounded-lg bg-card border border-border">
                   <h4 className="font-semibold mb-2 text-foreground">Macro Balance</h4>
                   <p className="text-sm text-muted-foreground">
                     {goalType === "lose" 
@@ -265,6 +329,26 @@ const Goals = () => {
           </Card>
         </div>
       </div>
+
+      {/* AI Recommendation Detail Dialog */}
+      <Dialog open={isRecommendationOpen} onOpenChange={setIsRecommendationOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Detailed AI Recommendations
+            </DialogTitle>
+            <DialogDescription>
+              Personalized nutrition guidance for your {goalType === "lose" ? "weight loss" : goalType === "maintain" ? "weight maintenance" : "muscle gain"} goal
+            </DialogDescription>
+          </DialogHeader>
+          <div className="prose prose-sm max-w-none">
+            <div className="whitespace-pre-wrap text-foreground">
+              {aiRecommendation || "Loading recommendations..."}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

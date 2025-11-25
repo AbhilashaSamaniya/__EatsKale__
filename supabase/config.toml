@@ -2,3 +2,6 @@ project_id = "zkvypmulxwexybppgsty"
 
 [functions.analyze-meal]
 verify_jwt = true
+
+[functions.goal-recommendations]
+verify_jwt = true
