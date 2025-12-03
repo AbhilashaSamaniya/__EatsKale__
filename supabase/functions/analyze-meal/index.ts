@@ -85,8 +85,21 @@ serve(async (req) => {
     
     console.log('AI response:', content);
 
-    // Parse JSON from the response
-    const nutritionData = JSON.parse(content);
+    // Parse JSON from the response, handling markdown code blocks
+    let jsonString = content.trim();
+    
+    // Remove markdown code blocks if present
+    if (jsonString.startsWith('```json')) {
+      jsonString = jsonString.slice(7);
+    } else if (jsonString.startsWith('```')) {
+      jsonString = jsonString.slice(3);
+    }
+    if (jsonString.endsWith('```')) {
+      jsonString = jsonString.slice(0, -3);
+    }
+    jsonString = jsonString.trim();
+    
+    const nutritionData = JSON.parse(jsonString);
 
     return new Response(
       JSON.stringify(nutritionData),
