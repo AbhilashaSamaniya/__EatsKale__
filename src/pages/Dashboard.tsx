@@ -20,6 +20,12 @@ const Dashboard = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [userName, setUserName] = useState("");
   const [meals, setMeals] = useState<any[]>([]);
+  const [weeklyMeals, setWeeklyMeals] = useState<any[]>([]);
+  const [weeklyStats, setWeeklyStats] = useState({
+    avgCalories: 0,
+    daysLogged: 0,
+    goalStreak: 0,
+  });
   const [dailyGoals, setDailyGoals] = useState({
     calories: { current: 0, target: 2000 },
     protein: { current: 0, target: 150 },
@@ -35,6 +41,7 @@ const Dashboard = () => {
     fetchUserProfile();
     fetchGoals();
     fetchTodaysMeals();
+    fetchWeeklyMeals();
   }, []);
 
   const fetchUserProfile = async () => {
@@ -114,6 +121,67 @@ const Dashboard = () => {
     }
   };
 
+  const fetchWeeklyMeals = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    weekAgo.setHours(0, 0, 0, 0);
+
+    const { data, error } = await supabase
+      .from("meals")
+      .select("*")
+      .eq("user_id", user.id)
+      .gte("meal_date", weekAgo.toISOString())
+      .order("meal_date", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching weekly meals:", error);
+      return;
+    }
+
+    if (data) {
+      setWeeklyMeals(data);
+      
+      // Calculate weekly stats
+      const mealsByDay = data.reduce((acc: Record<string, any[]>, meal) => {
+        const date = new Date(meal.meal_date).toDateString();
+        if (!acc[date]) acc[date] = [];
+        acc[date].push(meal);
+        return acc;
+      }, {});
+
+      const daysLogged = Object.keys(mealsByDay).length;
+      
+      const totalCalories = data.reduce((sum, meal) => sum + Number(meal.calories), 0);
+      const avgCalories = daysLogged > 0 ? Math.round(totalCalories / daysLogged) : 0;
+
+      // Calculate goal streak (consecutive days meeting calorie goal)
+      const today = new Date();
+      let streak = 0;
+      for (let i = 0; i < 7; i++) {
+        const checkDate = new Date(today);
+        checkDate.setDate(today.getDate() - i);
+        const dateStr = checkDate.toDateString();
+        const dayMeals = mealsByDay[dateStr] || [];
+        const dayCalories = dayMeals.reduce((sum: number, m: any) => sum + Number(m.calories), 0);
+        
+        if (dayCalories >= dailyGoals.calories.target * 0.8 && dayCalories <= dailyGoals.calories.target * 1.2) {
+          streak++;
+        } else if (i > 0) {
+          break;
+        }
+      }
+
+      setWeeklyStats({
+        avgCalories,
+        daysLogged,
+        goalStreak: streak,
+      });
+    }
+  };
+
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -174,6 +242,7 @@ const Dashboard = () => {
       
       setFoodInput("");
       fetchTodaysMeals();
+      fetchWeeklyMeals();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -234,6 +303,7 @@ const Dashboard = () => {
       });
 
       fetchTodaysMeals();
+      fetchWeeklyMeals();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -359,6 +429,76 @@ const Dashboard = () => {
 
             {/* Analytics */}
             <ProgressAnalytics />
+
+            {/* Weekly Meal History */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  This Week's Portions
+                </CardTitle>
+                <CardDescription>Your meal history for the past 7 days</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {weeklyMeals.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      No meals logged this week yet.
+                    </p>
+                  ) : (
+                    Object.entries(
+                      weeklyMeals.reduce((acc: Record<string, any[]>, meal) => {
+                        const date = new Date(meal.meal_date).toLocaleDateString('en-US', { 
+                          weekday: 'short', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        });
+                        if (!acc[date]) acc[date] = [];
+                        acc[date].push(meal);
+                        return acc;
+                      }, {})
+                    ).map(([date, dayMeals]) => {
+                      const dayTotal = (dayMeals as any[]).reduce((sum, m) => sum + Number(m.calories), 0);
+                      return (
+                        <div key={date} className="border border-border rounded-lg p-4">
+                          <div className="flex justify-between items-center mb-3">
+                            <h4 className="font-semibold text-foreground">{date}</h4>
+                            <span className="text-sm font-medium text-primary">{dayTotal} cal total</span>
+                          </div>
+                          <div className="space-y-2">
+                            {(dayMeals as any[]).map((meal) => (
+                              <div key={meal.id} className="flex items-center justify-between text-sm p-2 bg-muted/30 rounded">
+                                <div className="flex items-center gap-2">
+                                  {meal.image_url && (
+                                    <img 
+                                      src={meal.image_url} 
+                                      alt={meal.meal_name}
+                                      className="w-10 h-10 object-cover rounded"
+                                    />
+                                  )}
+                                  <div>
+                                    <span className="font-medium text-foreground">{meal.meal_name}</span>
+                                    <p className="text-xs text-muted-foreground">
+                                      {new Date(meal.meal_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <span className="font-medium">{meal.calories} cal</span>
+                                  <p className="text-xs text-muted-foreground">
+                                    P:{meal.protein}g C:{meal.carbs}g F:{meal.fats}g
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Sidebar */}
@@ -415,15 +555,15 @@ const Dashboard = () => {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-white/80">Avg. Calories</span>
-                    <span className="font-semibold">1,850</span>
+                    <span className="font-semibold">{weeklyStats.avgCalories.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-white/80">Days Logged</span>
-                    <span className="font-semibold">6/7</span>
+                    <span className="font-semibold">{weeklyStats.daysLogged}/7</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-white/80">Goal Streak</span>
-                    <span className="font-semibold">4 days 🔥</span>
+                    <span className="font-semibold">{weeklyStats.goalStreak} days {weeklyStats.goalStreak > 0 ? '🔥' : ''}</span>
                   </div>
                 </div>
               </CardContent>
