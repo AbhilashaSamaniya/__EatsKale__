@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RecipeDialog } from "@/components/RecipeDialog";
 
 const Meals = () => {
@@ -23,6 +24,21 @@ const Meals = () => {
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
   const [isRecipeDialogOpen, setIsRecipeDialogOpen] = useState(false);
+  
+  // New recipe form state
+  const [isCreateRecipeOpen, setIsCreateRecipeOpen] = useState(false);
+  const [newRecipe, setNewRecipe] = useState({
+    name: "",
+    description: "",
+    calories: "",
+    protein: "",
+    carbs: "",
+    fats: "",
+    time: "",
+    difficulty: "Easy",
+    meal_plan_id: "",
+  });
+  const [isCreatingRecipe, setIsCreatingRecipe] = useState(false);
 
   useEffect(() => {
     fetchMealPlans();
@@ -204,6 +220,67 @@ const Meals = () => {
     }
   };
 
+  const handleCreateRecipe = async () => {
+    if (!newRecipe.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a recipe name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingRecipe(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("recipes")
+        .insert({
+          user_id: user.id,
+          meal_plan_id: newRecipe.meal_plan_id || null,
+          name: newRecipe.name,
+          description: newRecipe.description || null,
+          calories: parseInt(newRecipe.calories) || 0,
+          protein: parseInt(newRecipe.protein) || 0,
+          carbs: parseInt(newRecipe.carbs) || 0,
+          fats: parseInt(newRecipe.fats) || 0,
+          time: newRecipe.time || "15 min",
+          difficulty: newRecipe.difficulty,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success!",
+        description: "Recipe created successfully",
+      });
+
+      setNewRecipe({
+        name: "",
+        description: "",
+        calories: "",
+        protein: "",
+        carbs: "",
+        fats: "",
+        time: "",
+        difficulty: "Easy",
+        meal_plan_id: "",
+      });
+      setIsCreateRecipeOpen(false);
+      fetchRecipes();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create recipe",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingRecipe(false);
+    }
+  };
+
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -299,45 +376,178 @@ const Meals = () => {
             </h1>
             <p className="text-muted-foreground">Organize your meals with custom plans</p>
           </div>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Create Meal Plan
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Meal Plan</DialogTitle>
-                <DialogDescription>
-                  Create a custom meal plan to organize your recipes
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="plan-name">Plan Name</Label>
-                  <Input
-                    id="plan-name"
-                    placeholder="E.g., Weekly Meal Prep"
-                    value={newPlanName}
-                    onChange={(e) => setNewPlanName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="plan-description">Description (Optional)</Label>
-                  <Textarea
-                    id="plan-description"
-                    placeholder="Describe your meal plan..."
-                    value={newPlanDescription}
-                    onChange={(e) => setNewPlanDescription(e.target.value)}
-                  />
-                </div>
-                <Button onClick={handleCreatePlan} disabled={isCreatingPlan} className="w-full">
-                  {isCreatingPlan ? "Creating..." : "Create Plan"}
+          <div className="flex gap-2">
+            {/* Create Recipe Button */}
+            <Dialog open={isCreateRecipeOpen} onOpenChange={setIsCreateRecipeOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Recipe
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Create New Recipe</DialogTitle>
+                  <DialogDescription>
+                    Add a custom recipe to your collection
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
+                  <div className="space-y-2">
+                    <Label htmlFor="recipe-name">Recipe Name *</Label>
+                    <Input
+                      id="recipe-name"
+                      placeholder="E.g., Chicken Stir Fry"
+                      value={newRecipe.name}
+                      onChange={(e) => setNewRecipe(prev => ({ ...prev, name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="recipe-description">Description</Label>
+                    <Textarea
+                      id="recipe-description"
+                      placeholder="Describe your recipe..."
+                      value={newRecipe.description}
+                      onChange={(e) => setNewRecipe(prev => ({ ...prev, description: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="recipe-calories">Calories</Label>
+                      <Input
+                        id="recipe-calories"
+                        type="number"
+                        placeholder="500"
+                        value={newRecipe.calories}
+                        onChange={(e) => setNewRecipe(prev => ({ ...prev, calories: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="recipe-protein">Protein (g)</Label>
+                      <Input
+                        id="recipe-protein"
+                        type="number"
+                        placeholder="30"
+                        value={newRecipe.protein}
+                        onChange={(e) => setNewRecipe(prev => ({ ...prev, protein: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="recipe-carbs">Carbs (g)</Label>
+                      <Input
+                        id="recipe-carbs"
+                        type="number"
+                        placeholder="50"
+                        value={newRecipe.carbs}
+                        onChange={(e) => setNewRecipe(prev => ({ ...prev, carbs: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="recipe-fats">Fats (g)</Label>
+                      <Input
+                        id="recipe-fats"
+                        type="number"
+                        placeholder="15"
+                        value={newRecipe.fats}
+                        onChange={(e) => setNewRecipe(prev => ({ ...prev, fats: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="recipe-time">Prep Time</Label>
+                      <Input
+                        id="recipe-time"
+                        placeholder="20 min"
+                        value={newRecipe.time}
+                        onChange={(e) => setNewRecipe(prev => ({ ...prev, time: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="recipe-difficulty">Difficulty</Label>
+                      <Select 
+                        value={newRecipe.difficulty} 
+                        onValueChange={(val) => setNewRecipe(prev => ({ ...prev, difficulty: val }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Easy">Easy</SelectItem>
+                          <SelectItem value="Medium">Medium</SelectItem>
+                          <SelectItem value="Hard">Hard</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  {mealPlans.length > 0 && (
+                    <div className="space-y-2">
+                      <Label htmlFor="recipe-plan">Add to Meal Plan (Optional)</Label>
+                      <Select 
+                        value={newRecipe.meal_plan_id} 
+                        onValueChange={(val) => setNewRecipe(prev => ({ ...prev, meal_plan_id: val }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a meal plan" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {mealPlans.map((plan) => (
+                            <SelectItem key={plan.id} value={plan.id}>
+                              {plan.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <Button onClick={handleCreateRecipe} disabled={isCreatingRecipe} className="w-full">
+                    {isCreatingRecipe ? "Creating..." : "Create Recipe"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Create Meal Plan Button */}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create Meal Plan
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Meal Plan</DialogTitle>
+                  <DialogDescription>
+                    Create a custom meal plan to organize your recipes
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="plan-name">Plan Name</Label>
+                    <Input
+                      id="plan-name"
+                      placeholder="E.g., Weekly Meal Prep"
+                      value={newPlanName}
+                      onChange={(e) => setNewPlanName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="plan-description">Description (Optional)</Label>
+                    <Textarea
+                      id="plan-description"
+                      placeholder="Describe your meal plan..."
+                      value={newPlanDescription}
+                      onChange={(e) => setNewPlanDescription(e.target.value)}
+                    />
+                  </div>
+                  <Button onClick={handleCreatePlan} disabled={isCreatingPlan} className="w-full">
+                    {isCreatingPlan ? "Creating..." : "Create Plan"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Meal Plans Section */}

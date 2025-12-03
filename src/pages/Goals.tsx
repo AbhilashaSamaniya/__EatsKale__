@@ -77,16 +77,37 @@ const Goals = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase
+      // Check if user already has goals
+      const { data: existingGoals } = await supabase
         .from("goals")
-        .upsert({
-          user_id: user.id,
-          goal_type: goalType,
-          calories: parseInt(calories),
-          protein: parseInt(protein),
-          carbs: parseInt(carbs),
-          fats: parseInt(fats),
-        });
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const goalData = {
+        user_id: user.id,
+        goal_type: goalType,
+        calories: parseInt(calories),
+        protein: parseInt(protein),
+        carbs: parseInt(carbs),
+        fats: parseInt(fats),
+      };
+
+      let error;
+      if (existingGoals?.id) {
+        // Update existing goals
+        const result = await supabase
+          .from("goals")
+          .update(goalData)
+          .eq("id", existingGoals.id);
+        error = result.error;
+      } else {
+        // Insert new goals
+        const result = await supabase
+          .from("goals")
+          .insert(goalData);
+        error = result.error;
+      }
 
       if (error) throw error;
 
