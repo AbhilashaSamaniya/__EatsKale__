@@ -31,6 +31,8 @@ interface SuggestedRecipe {
   fats: number;
   time: string;
   difficulty: string;
+  ingredients?: string[];
+  steps?: string[];
 }
 
 const Meals = () => {
@@ -48,6 +50,7 @@ const Meals = () => {
   const [userGoals, setUserGoals] = useState<UserGoals | null>(null);
   const [suggestedRecipes, setSuggestedRecipes] = useState<SuggestedRecipe[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [viewingSuggestedRecipe, setViewingSuggestedRecipe] = useState<SuggestedRecipe | null>(null);
   
   // New recipe form state
   const [isCreateRecipeOpen, setIsCreateRecipeOpen] = useState(false);
@@ -818,19 +821,106 @@ const Meals = () => {
                       <Clock className="h-4 w-4" />
                       <span>{recipe.time}</span>
                     </div>
-                    <Button 
-                      className="w-full gap-2" 
-                      onClick={() => addSuggestedRecipe(recipe)}
-                    >
-                      <Plus className="h-4 w-4" />
-                      Save Recipe
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setViewingSuggestedRecipe(recipe)}
+                      >
+                        View Steps
+                      </Button>
+                      <Button 
+                        className="flex-1 gap-2" 
+                        onClick={() => addSuggestedRecipe(recipe)}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Save
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
           </div>
         )}
+
+        {/* View Suggested Recipe Dialog */}
+        <Dialog open={!!viewingSuggestedRecipe} onOpenChange={(open) => !open && setViewingSuggestedRecipe(null)}>
+          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+            {viewingSuggestedRecipe && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-xl">{viewingSuggestedRecipe.name}</DialogTitle>
+                  <DialogDescription>{viewingSuggestedRecipe.description}</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-6 py-4">
+                  {/* Nutrition Info */}
+                  <div className="grid grid-cols-4 gap-2 p-3 rounded-lg bg-muted">
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-foreground">{viewingSuggestedRecipe.calories}</div>
+                      <div className="text-xs text-muted-foreground">Calories</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-secondary">{viewingSuggestedRecipe.protein}g</div>
+                      <div className="text-xs text-muted-foreground">Protein</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-accent">{viewingSuggestedRecipe.carbs}g</div>
+                      <div className="text-xs text-muted-foreground">Carbs</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-warning">{viewingSuggestedRecipe.fats}g</div>
+                      <div className="text-xs text-muted-foreground">Fats</div>
+                    </div>
+                  </div>
+
+                  {/* Ingredients */}
+                  {viewingSuggestedRecipe.ingredients && viewingSuggestedRecipe.ingredients.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-foreground mb-2">Ingredients</h4>
+                      <ul className="space-y-1">
+                        {viewingSuggestedRecipe.ingredients.map((ingredient, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
+                            <span className="text-primary">•</span>
+                            {ingredient}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Steps */}
+                  {viewingSuggestedRecipe.steps && viewingSuggestedRecipe.steps.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-foreground mb-2">Instructions</h4>
+                      <ol className="space-y-3">
+                        {viewingSuggestedRecipe.steps.map((step, idx) => (
+                          <li key={idx} className="flex gap-3 text-sm">
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-medium">
+                              {idx + 1}
+                            </span>
+                            <span className="text-muted-foreground pt-0.5">{step}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+
+                  <Button 
+                    className="w-full gap-2" 
+                    onClick={() => {
+                      addSuggestedRecipe(viewingSuggestedRecipe);
+                      setViewingSuggestedRecipe(null);
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Save Recipe
+                  </Button>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Recipe Grid */}
         <h2 className="text-2xl font-bold text-foreground mb-4">Default Recipes</h2>
