@@ -26,12 +26,12 @@ serve(async (req) => {
 
     const goalDesc = goalDescriptions[goalType] || "balanced nutrition";
 
-    const systemPrompt = `You are a nutritionist AI that suggests healthy recipes. Return exactly 3 recipe suggestions in valid JSON format only. No markdown, no code blocks, just pure JSON.`;
+    const systemPrompt = `You are a nutritionist AI that creates detailed recipes with step-by-step cooking instructions. Return exactly 3 recipes in valid JSON format only. No markdown, no code blocks, just pure JSON.`;
 
-    const userPrompt = `Suggest 3 recipes for someone with a ${goalDesc} goal.
+    const userPrompt = `Create 3 detailed recipes for someone with a ${goalDesc} goal.
 Their daily targets are: ${calories} calories, ${protein}g protein, ${carbs}g carbs, ${fats}g fats.
 
-Each recipe should help them meet their goals. Return a JSON array with this exact structure:
+Each recipe should include ingredients list and step-by-step cooking instructions. Return a JSON array with this exact structure:
 [
   {
     "name": "Recipe Name",
@@ -41,7 +41,9 @@ Each recipe should help them meet their goals. Return a JSON array with this exa
     "carbs": 45,
     "fats": 15,
     "time": "25 min",
-    "difficulty": "Easy"
+    "difficulty": "Easy",
+    "ingredients": ["1 cup rice", "200g chicken breast", "1 tbsp olive oil"],
+    "steps": ["Step 1: Prepare ingredients", "Step 2: Cook the protein", "Step 3: Combine and serve"]
   }
 ]
 
