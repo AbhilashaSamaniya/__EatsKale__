@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Apple, ChefHat, Clock, Sparkles, LogOut, Plus, Trash2 } from "lucide-react";
+import { Apple, ChefHat, Clock, Sparkles, LogOut, Plus, Trash2, Loader2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RecipeDialog } from "@/components/RecipeDialog";
 
+interface UserGoals {
+  goal_type: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+}
+
+interface SuggestedRecipe {
+  name: string;
+  description: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  time: string;
+  difficulty: string;
+}
+
 const Meals = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -24,6 +43,11 @@ const Meals = () => {
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
   const [isRecipeDialogOpen, setIsRecipeDialogOpen] = useState(false);
+  
+  // User goals state
+  const [userGoals, setUserGoals] = useState<UserGoals | null>(null);
+  const [suggestedRecipes, setSuggestedRecipes] = useState<SuggestedRecipe[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   
   // New recipe form state
   const [isCreateRecipeOpen, setIsCreateRecipeOpen] = useState(false);
@@ -43,7 +67,103 @@ const Meals = () => {
   useEffect(() => {
     fetchMealPlans();
     fetchRecipes();
+    fetchUserGoals();
   }, []);
+
+  const fetchUserGoals = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("goals")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!error && data) {
+      setUserGoals(data);
+    }
+  };
+
+  const getAISuggestions = async () => {
+    if (!userGoals) {
+      toast({
+        title: "No goals set",
+        description: "Please set your nutrition goals first in the Goals section.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoadingSuggestions(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('suggest-recipes', {
+        body: {
+          goalType: userGoals.goal_type,
+          calories: userGoals.calories,
+          protein: userGoals.protein,
+          carbs: userGoals.carbs,
+          fats: userGoals.fats,
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.recipes && Array.isArray(data.recipes)) {
+        setSuggestedRecipes(data.recipes);
+        toast({
+          title: "Recipes generated!",
+          description: "AI has suggested recipes based on your goals.",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error getting suggestions:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to get recipe suggestions",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  };
+
+  const addSuggestedRecipe = async (recipe: SuggestedRecipe, planId?: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("recipes")
+        .insert({
+          user_id: user.id,
+          meal_plan_id: planId || null,
+          name: recipe.name,
+          description: recipe.description,
+          calories: recipe.calories,
+          protein: recipe.protein,
+          carbs: recipe.carbs,
+          fats: recipe.fats,
+          time: recipe.time,
+          difficulty: recipe.difficulty,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Recipe saved!",
+        description: `${recipe.name} has been added to your recipes.`,
+      });
+
+      fetchRecipes();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save recipe",
+        variant: "destructive",
+      });
+    }
+  };
 
   const fetchMealPlans = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -611,7 +731,7 @@ const Meals = () => {
           </div>
         )}
 
-        {/* AI Banner */}
+        {/* AI Recipe Generator */}
         <Card className="mb-8 border-2 border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
@@ -620,18 +740,100 @@ const Meals = () => {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-foreground mb-2">
-                  Recipe Suggestions
+                  AI Recipe Suggestions
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  Browse our recommended recipes below. Create meal plans to organize your favorite recipes!
+                  {userGoals 
+                    ? `Get personalized recipes for your ${userGoals.goal_type === 'lose' ? 'weight loss' : userGoals.goal_type === 'gain' ? 'muscle gain' : 'maintenance'} goal (${userGoals.calories} cal target)`
+                    : "Set your nutrition goals to get personalized recipe suggestions!"}
                 </p>
+                <Button 
+                  onClick={getAISuggestions} 
+                  disabled={isLoadingSuggestions || !userGoals}
+                  className="gap-2"
+                >
+                  {isLoadingSuggestions ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Get Recipes for My Goals
+                    </>
+                  )}
+                </Button>
+                {!userGoals && (
+                  <Link to="/goals">
+                    <Button variant="link" className="ml-2">Set Goals →</Button>
+                  </Link>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* AI Suggested Recipes */}
+        {suggestedRecipes.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <Sparkles className="h-6 w-6 text-primary" />
+              AI-Generated Recipes for You
+            </h2>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {suggestedRecipes.map((recipe, index) => (
+                <Card key={index} className="hover:shadow-lg transition-shadow border-primary/20">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg mb-2">{recipe.name}</CardTitle>
+                        <CardDescription>{recipe.description}</CardDescription>
+                      </div>
+                      <Badge variant="secondary" className="ml-2">
+                        {recipe.difficulty}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-4 gap-2 p-3 rounded-lg bg-muted">
+                      <div className="text-center">
+                        <div className="text-sm font-bold text-foreground">{recipe.calories}</div>
+                        <div className="text-xs text-muted-foreground">Cal</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-bold text-secondary">{recipe.protein}g</div>
+                        <div className="text-xs text-muted-foreground">P</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-bold text-accent">{recipe.carbs}g</div>
+                        <div className="text-xs text-muted-foreground">C</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-bold text-warning">{recipe.fats}g</div>
+                        <div className="text-xs text-muted-foreground">F</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span>{recipe.time}</span>
+                    </div>
+                    <Button 
+                      className="w-full gap-2" 
+                      onClick={() => addSuggestedRecipe(recipe)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Save Recipe
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Recipe Grid */}
-        <h2 className="text-2xl font-bold text-foreground mb-4">Suggested Recipes</h2>
+        <h2 className="text-2xl font-bold text-foreground mb-4">Default Recipes</h2>
         <div className="grid gap-6 md:grid-cols-2">
           {defaultRecipes.map((meal) => (
             <Card key={meal.id} className="hover:shadow-lg transition-shadow">

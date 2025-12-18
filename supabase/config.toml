@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.goal-recommendations]
 verify_jwt = true
+
+[functions.suggest-recipes]
+verify_jwt = true
