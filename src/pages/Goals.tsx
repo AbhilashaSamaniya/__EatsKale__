@@ -84,28 +84,32 @@ const Goals = () => {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      const goalData = {
-        user_id: user.id,
-        goal_type: goalType,
-        calories: parseInt(calories),
-        protein: parseInt(protein),
-        carbs: parseInt(carbs),
-        fats: parseInt(fats),
-      };
-
       let error;
       if (existingGoals?.id) {
-        // Update existing goals
+        // Update existing goals - don't include user_id in update
         const result = await supabase
           .from("goals")
-          .update(goalData)
+          .update({
+            goal_type: goalType,
+            calories: parseInt(calories),
+            protein: parseInt(protein),
+            carbs: parseInt(carbs),
+            fats: parseInt(fats),
+          })
           .eq("id", existingGoals.id);
         error = result.error;
       } else {
         // Insert new goals
         const result = await supabase
           .from("goals")
-          .insert(goalData);
+          .insert({
+            user_id: user.id,
+            goal_type: goalType,
+            calories: parseInt(calories),
+            protein: parseInt(protein),
+            carbs: parseInt(carbs),
+            fats: parseInt(fats),
+          });
         error = result.error;
       }
 
