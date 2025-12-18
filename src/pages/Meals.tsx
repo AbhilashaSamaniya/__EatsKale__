@@ -922,6 +922,93 @@ const Meals = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Saved Recipes Section */}
+        {recipes.filter(r => !r.meal_plan_id).length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <ChefHat className="h-6 w-6 text-primary" />
+              Your Saved Recipes
+            </h2>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {recipes.filter(r => !r.meal_plan_id).map((recipe) => (
+                <Card key={recipe.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg mb-2">{recipe.name}</CardTitle>
+                        {recipe.description && (
+                          <CardDescription>{recipe.description}</CardDescription>
+                        )}
+                      </div>
+                      <Badge variant="secondary" className="ml-2">
+                        {recipe.difficulty}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-4 gap-2 p-3 rounded-lg bg-muted">
+                      <div className="text-center">
+                        <div className="text-sm font-bold text-foreground">{recipe.calories}</div>
+                        <div className="text-xs text-muted-foreground">Cal</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-bold text-secondary">{recipe.protein}g</div>
+                        <div className="text-xs text-muted-foreground">P</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-bold text-accent">{recipe.carbs}g</div>
+                        <div className="text-xs text-muted-foreground">C</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-bold text-warning">{recipe.fats}g</div>
+                        <div className="text-xs text-muted-foreground">F</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4" />
+                      <span>{recipe.time}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      {mealPlans.length > 0 && (
+                        <Select onValueChange={(planId) => {
+                          supabase
+                            .from("recipes")
+                            .update({ meal_plan_id: planId })
+                            .eq("id", recipe.id)
+                            .then(({ error }) => {
+                              if (error) {
+                                toast({ title: "Error", description: "Failed to add to plan", variant: "destructive" });
+                              } else {
+                                toast({ title: "Added!", description: `Recipe added to meal plan` });
+                                fetchRecipes();
+                              }
+                            });
+                        }}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Add to Plan" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {mealPlans.map((plan) => (
+                              <SelectItem key={plan.id} value={plan.id}>{plan.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveFromPlan(recipe.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Recipe Grid */}
         <h2 className="text-2xl font-bold text-foreground mb-4">Default Recipes</h2>
         <div className="grid gap-6 md:grid-cols-2">
