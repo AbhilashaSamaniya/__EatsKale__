@@ -192,9 +192,11 @@ export type Database = {
           difficulty: string
           fats: number
           id: string
+          ingredients: string[] | null
           meal_plan_id: string | null
           name: string
           protein: number
+          steps: string[] | null
           time: string
           user_id: string
         }
@@ -206,9 +208,11 @@ export type Database = {
           difficulty: string
           fats: number
           id?: string
+          ingredients?: string[] | null
           meal_plan_id?: string | null
           name: string
           protein: number
+          steps?: string[] | null
           time: string
           user_id: string
         }
@@ -220,9 +224,11 @@ export type Database = {
           difficulty?: string
           fats?: number
           id?: string
+          ingredients?: string[] | null
           meal_plan_id?: string | null
           name?: string
           protein?: number
+          steps?: string[] | null
           time?: string
           user_id?: string
         }

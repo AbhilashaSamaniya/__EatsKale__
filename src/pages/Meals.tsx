@@ -51,6 +51,7 @@ const Meals = () => {
   const [suggestedRecipes, setSuggestedRecipes] = useState<SuggestedRecipe[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [viewingSuggestedRecipe, setViewingSuggestedRecipe] = useState<SuggestedRecipe | null>(null);
+  const [viewingSavedRecipe, setViewingSavedRecipe] = useState<any>(null);
   
   // New recipe form state
   const [isCreateRecipeOpen, setIsCreateRecipeOpen] = useState(false);
@@ -149,6 +150,8 @@ const Meals = () => {
           fats: recipe.fats,
           time: recipe.time,
           difficulty: recipe.difficulty,
+          ingredients: recipe.ingredients || null,
+          steps: recipe.steps || null,
         });
 
       if (error) throw error;
@@ -969,6 +972,17 @@ const Meals = () => {
                       <span>{recipe.time}</span>
                     </div>
                     <div className="flex gap-2">
+                      {(recipe.ingredients || recipe.steps) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setViewingSavedRecipe(recipe)}
+                          className="gap-1"
+                        >
+                          <ChefHat className="h-4 w-4" />
+                          View Steps
+                        </Button>
+                      )}
                       {mealPlans.length > 0 && (
                         <Select onValueChange={(planId) => {
                           supabase
@@ -1008,6 +1022,99 @@ const Meals = () => {
             </div>
           </div>
         )}
+
+        {/* Saved Recipe Details Dialog */}
+        <Dialog open={!!viewingSavedRecipe} onOpenChange={(open) => !open && setViewingSavedRecipe(null)}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            {viewingSavedRecipe && (
+              <>
+                <DialogHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <DialogTitle className="text-2xl mb-2">{viewingSavedRecipe.name}</DialogTitle>
+                      <DialogDescription>{viewingSavedRecipe.description}</DialogDescription>
+                    </div>
+                    <Badge variant="secondary">{viewingSavedRecipe.difficulty}</Badge>
+                  </div>
+                </DialogHeader>
+
+                <div className="space-y-6">
+                  {/* Time & Nutrition */}
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>{viewingSavedRecipe.time} prep time</span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="bg-muted rounded-lg p-3 text-center">
+                      <div className="text-xl font-bold text-foreground">{viewingSavedRecipe.calories}</div>
+                      <div className="text-xs text-muted-foreground">Calories</div>
+                    </div>
+                    <div className="bg-muted rounded-lg p-3 text-center">
+                      <div className="text-xl font-bold text-secondary">{viewingSavedRecipe.protein}g</div>
+                      <div className="text-xs text-muted-foreground">Protein</div>
+                    </div>
+                    <div className="bg-muted rounded-lg p-3 text-center">
+                      <div className="text-xl font-bold text-accent">{viewingSavedRecipe.carbs}g</div>
+                      <div className="text-xs text-muted-foreground">Carbs</div>
+                    </div>
+                    <div className="bg-muted rounded-lg p-3 text-center">
+                      <div className="text-xl font-bold text-warning">{viewingSavedRecipe.fats}g</div>
+                      <div className="text-xs text-muted-foreground">Fats</div>
+                    </div>
+                  </div>
+
+                  {/* Ingredients */}
+                  {viewingSavedRecipe.ingredients && viewingSavedRecipe.ingredients.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                        <Apple className="h-5 w-5 text-primary" />
+                        Ingredients
+                      </h3>
+                      <ul className="space-y-2">
+                        {viewingSavedRecipe.ingredients.map((ingredient: string, index: number) => (
+                          <li key={index} className="flex items-start gap-2">
+                            <span className="text-primary mt-1">•</span>
+                            <span>{ingredient}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Steps */}
+                  {viewingSavedRecipe.steps && viewingSavedRecipe.steps.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                        <ChefHat className="h-5 w-5 text-primary" />
+                        Instructions
+                      </h3>
+                      <ol className="space-y-3">
+                        {viewingSavedRecipe.steps.map((step: string, index: number) => (
+                          <li key={index} className="flex gap-3">
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium">
+                              {index + 1}
+                            </span>
+                            <span className="pt-0.5">{step}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+
+                  {/* No details message */}
+                  {(!viewingSavedRecipe.ingredients || viewingSavedRecipe.ingredients.length === 0) &&
+                   (!viewingSavedRecipe.steps || viewingSavedRecipe.steps.length === 0) && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <ChefHat className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>No detailed instructions available for this recipe.</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Recipe Grid */}
         <h2 className="text-2xl font-bold text-foreground mb-4">Default Recipes</h2>
